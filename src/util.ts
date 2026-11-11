@@ -235,7 +235,7 @@ export class Progress {
     const bar = "=".repeat(Math.max(0, fill - 1)) + (fill ? (pct >= 1 ? "=" : ">") : "") + " ".repeat(w - fill);
     const eta = sp > 0 ? (this.total - this.done) / sp : Infinity;
     const line = `${this.label} [${bar}] ${(pct * 100).toFixed(1).padStart(5)}%  ${fmtBytes(this.done)}/${fmtBytes(this.total)}  ${fmtBytes(sp)}/s  ${final ? "" : "ETA " + fmtTime(eta) + "  "}${this.files}/${this.totalFiles} files`;
-    if (this.tty) process.stdout.write("\r" + line + "\x1b[K");
+    if (this.tty) process.stdout.write("\r" + line.slice(0, Math.max(20, (process.stdout.columns || 120) - 1)) + "\x1b[K");
     else if (final || Date.now() - this.lastPlain > 5000) { this.lastPlain = Date.now(); console.log(line); }
   }
 
