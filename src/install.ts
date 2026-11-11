@@ -24,6 +24,7 @@ export async function install() {
   await fs.mkdir(BIN_DIR, { recursive: true });
   await fs.mkdir(DIST_DIR, { recursive: true });
   const target = path.join(BIN_DIR, WIN ? "beam.exe" : "beam");
+  let linked = "";
 
   if (path.resolve(exe) !== path.resolve(target)) {
     await fs.rm(target, { force: true });
@@ -58,10 +59,24 @@ export async function install() {
       const cur = existsSync(rc) ? readFileSync(rc, "utf8") : "";
       if (!cur.includes(".beam/bin")) await fs.appendFile(rc, `\n# beam\n${line}\n`);
     }
+    // Also link into a dir that's already on PATH so `beam` works in already-open terminals.
+    const onPath = (process.env.PATH ?? "").split(":");
+    for (const d of [path.join(os.homedir(), ".local", "bin"), "/opt/homebrew/bin", "/usr/local/bin"]) {
+      if (!onPath.includes(d) || !existsSync(d)) continue;
+      try {
+        const link = path.join(d, "beam");
+        await fs.rm(link, { force: true });
+        await fs.symlink(target, link);
+        linked = link;
+        break;
+      } catch {}
+    }
   }
 
-  console.log(`✔ installed ${target}`);
-  console.log(`  open a NEW terminal, then:  beam receive   or   beam send <folder>`);
+  console.log(`✔ installed ${target}${linked ? `  (linked ${linked})` : ""}`);
+  console.log(linked || WIN
+    ? `  run:  beam   (to receive)   or   beam send <folder>`
+    : `  open a NEW terminal, then:  beam   (to receive)   or   beam send <folder>`);
 }
 
 function findDist(): string {
