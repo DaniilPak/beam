@@ -161,8 +161,10 @@ export async function send(inputs: string[], opts: { to?: string; streams: numbe
   const prog = new Progress(bytes, todo.length, "  sending  ");
   todo.forEach((f) => { if (f.size === 0) prog.fileDone(); });
 
+  const socks: net.Socket[] = [];
   async function worker() {
     const s = await connect(target.host, target.port, 5000);
+    socks.push(s);
     s.on("error", () => {});
     sendFrame(s, { t: "data", sid: resp.sid });
     for (let n = q.next(); !n.done; n = q.next()) {
@@ -190,8 +192,19 @@ export async function send(inputs: string[], opts: { to?: string; streams: numbe
     await new Promise((res) => s.once("close", res));
   }
 
+  // Watchdog: if nothing moves for 30s, fail loudly instead of hanging (re-running resumes).
+  let last = prog.done, lastT = Date.now(), dog: ReturnType<typeof setInterval> | undefined;
+  const stalled = new Promise<never>((_, rej) => {
+    dog = setInterval(() => {
+      if (prog.done !== last) { last = prog.done; lastT = Date.now(); return; }
+      if (Date.now() - lastT > 30_000) {
+        socks.forEach((s) => s.destroy());
+        rej(new Error("transfer stalled for 30s — run the same command again to resume"));
+      }
+    }, 1000);
+  });
   try {
-    await Promise.all(Array.from({ length: streams }, worker));
+    await Promise.race([Promise.all(Array.from({ length: streams }, worker)), stalled]).finally(() => clearInterval(dog));
     sendFrame(ctl, { t: "done", streams });
     const fin = await readFrame(r);
     prog.stop();

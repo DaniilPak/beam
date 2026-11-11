@@ -3,7 +3,7 @@ import net from "node:net";
 import readline from "node:readline";
 import { spawnSync } from "node:child_process";
 
-export const VERSION = "0.1.2";
+export const VERSION = "0.1.3";
 export const UDP_PORT = 47100;
 export const TCP_PORT = 47101;
 export const HTTP_PORT = 47102;
@@ -159,15 +159,24 @@ export async function readFrame(r: Reader): Promise<any> {
 export function writeAsync(sock: net.Socket, buf: Buffer): Promise<void> {
   return new Promise((resolve, reject) => {
     if (sock.destroyed) return reject(new Error("connection closed"));
-    if (sock.write(buf)) return resolve();
-    const done = (e?: Error) => {
+    // Resolve on whichever fires first: write callback, 'drain', or the buffer emptying.
+    // Bun on Windows can miss 'drain', which used to hang transfers mid-way.
+    let settled = false;
+    let poll: ReturnType<typeof setInterval> | undefined;
+    function done(e?: Error | null) {
+      if (settled) return;
+      settled = true;
+      clearInterval(poll);
       sock.off("drain", onDrain); sock.off("error", onErr); sock.off("close", onClose);
       e ? reject(e) : resolve();
-    };
-    const onDrain = () => done();
-    const onErr = (e: Error) => done(e);
-    const onClose = () => done(new Error("connection closed"));
+    }
+    function onDrain() { done(); }
+    function onErr(e: Error) { done(e); }
+    function onClose() { done(new Error("connection closed")); }
+    const ok = sock.write(buf, (e) => done(e));
+    if (ok) return done();
     sock.on("drain", onDrain); sock.on("error", onErr); sock.on("close", onClose);
+    poll = setInterval(() => { if (sock.writableLength < 1 << 20) done(); }, 50);
   });
 }
 

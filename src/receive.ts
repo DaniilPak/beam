@@ -35,6 +35,8 @@ class Session {
   private finished = 0;
   private failed: Error | null = null;
   private waiters: (() => void)[] = [];
+  lastActivity = Date.now();
+  readonly socks = new Set<net.Socket>();
   progress!: Progress;
 
   constructor(readonly files: FileEntry[], readonly full: string[], readonly skip: Set<number>) {}
@@ -80,12 +82,14 @@ class Session {
     const fh = await this.handle(i);
     await fh.write(buf, 0, buf.length, pos);
     this.progress.add(buf.length);
+    this.lastActivity = Date.now();
     const g = (this.got.get(i) ?? 0) + buf.length;
     this.got.set(i, g);
     if (g === this.files[i]![1]) await this.finish(i, fh);
   }
 
   async dataConn(sock: net.Socket, r: Reader) {
+    this.socks.add(sock);
     try {
       for (;;) {
         const h = await r.read(16);
@@ -202,6 +206,13 @@ export async function receive(dirArg: string | undefined, opts: { ask: boolean }
     sessions.set(s.id, s);
     sendFrame(sock, { t: "accept", sid: s.id, skip: [...skip] });
 
+    // Watchdog: a sender that goes silent for 60s is dropped so the receiver frees up.
+    const dog = setInterval(() => {
+      if (Date.now() - s.lastActivity > 60_000) {
+        s.socks.forEach((d) => d.destroy());
+        sock.destroy(new Error("sender went silent for 60s"));
+      }
+    }, 2000);
     try {
       const done = await readFrame(r);
       if (done.t !== "done") throw new Error("protocol error");
@@ -217,6 +228,7 @@ export async function receive(dirArg: string | undefined, opts: { ask: boolean }
       await s.abort();
       console.log(`  ✖ transfer aborted: ${(e as Error).message} — send again to resume`);
     } finally {
+      clearInterval(dog);
       sessions.delete(s.id);
       console.log("\nWaiting for files… (Ctrl+C to stop)");
     }
