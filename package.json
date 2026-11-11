@@ -1,6 +1,6 @@
 {
   "name": "beam",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Fast LAN transfer of big folders (Unity projects) between Mac and Windows",
   "type": "module",
   "bin": { "beam": "src/cli.ts" },

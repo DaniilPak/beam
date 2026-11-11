@@ -23,7 +23,8 @@ Without internet, run `beam share-install` on a machine that already has beam, t
 ## Use
 
 ```bash
-beam receive D:\Projects        # on the receiving machine (default: ~/Downloads)
+beam                            # on the receiving machine: receives into ~/Downloads, no prompts
+beam D:\Projects                # ...or into a specific folder
 beam send ~/Desktop/LastStand   # on the sending machine, which finds the receiver by itself
 ```
 
@@ -31,7 +32,7 @@ beam send ~/Desktop/LastStand   # on the sending machine, which finds the receiv
 - **Skips Unity caches**: `Library`, `Temp`, `Logs`, `obj` and `Build` at the project root are left out, because Unity rebuilds them. Use `--all` to send them anyway.
 - **Only sends changes**: when you send the same project again, only changed files go over (it compares size and modification time). An interrupted transfer resumes the same way.
 - **Uses 4 TCP streams in parallel**, with big files split into chunks. Change the count with `--streams 8`.
-- The receiver asks before accepting anything, unless you start it with `-y`. Paths that try to escape the target folder are rejected.
+- The receiver accepts everything automatically. Start it with `beam receive --ask` to confirm each transfer. Paths that try to escape the target folder are rejected.
 
 ## Notes
 

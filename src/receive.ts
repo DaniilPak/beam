@@ -127,7 +127,7 @@ class Session {
   }
 }
 
-export async function receive(dirArg: string | undefined, opts: { yes: boolean }) {
+export async function receive(dirArg: string | undefined, opts: { ask: boolean }) {
   const dir = path.resolve(dirArg ?? path.join(os.homedir(), "Downloads"));
   await fs.mkdir(dir, { recursive: true });
   const name = os.hostname();
@@ -193,7 +193,7 @@ export async function receive(dirArg: string | undefined, opts: { yes: boolean }
     if (o.excluded?.length) console.log(`  sender skipped: ${o.excluded.join(", ")}`);
     console.log(`  → ${dir}`);
 
-    const ok = opts.yes || /^(y|yes|)$/i.test(await ask("  Accept? [Y/n] "));
+    const ok = !opts.ask || /^(y|yes|)$/i.test(await ask("  Accept? [Y/n] "));
     if (!ok) { sendFrame(sock, { t: "reject", reason: "declined by receiver" }); sock.end(); console.log("  declined"); return; }
 
     const s = new Session(files, full, skip);

@@ -6,7 +6,8 @@ import { VERSION, fmtBytes, ifaceFor, prettyIface } from "./util";
 
 const HELP = `beam ${VERSION} — fast folder transfer between your Mac and PC
 
-  beam receive [dir] [-y]        wait for files (default dir: ~/Downloads)
+  beam [dir]                     receive files, auto-accept (same as 'beam receive')
+  beam receive [dir] [--ask]     wait for files (default dir: ~/Downloads); --ask to confirm each
   beam send <path>... [options]  send files/folders to a receiver
       --to <name|ip>             pick receiver (skips discovery when an IP)
       --streams <n>              parallel TCP streams (default 4)
@@ -20,14 +21,15 @@ Re-sending the same folder only transfers files that changed (size/mtime).`;
 
 function parse(argv: string[]) {
   const pos: string[] = [];
-  const o = { to: undefined as string | undefined, streams: 4, all: false, yes: false, exclude: [] as string[] };
+  const o = { to: undefined as string | undefined, streams: 4, all: false, ask: false, exclude: [] as string[] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
     const val = () => { const v = argv[++i]; if (v === undefined) throw new Error(`${a} needs a value`); return v; };
     if (a === "--to") o.to = val();
     else if (a === "--streams" || a === "-j") o.streams = Math.max(1, Math.min(16, Number(val()) || 4));
     else if (a === "--all") o.all = true;
-    else if (a === "-y" || a === "--yes") o.yes = true;
+    else if (a === "--ask") o.ask = true;
+    else if (a === "-y" || a === "--yes") o.ask = false;
     else if (a === "--exclude") o.exclude.push(val());
     else if (a.startsWith("-") && a !== "-") throw new Error(`unknown option ${a}`);
     else pos.push(a);
@@ -36,8 +38,9 @@ function parse(argv: string[]) {
 }
 
 async function main() {
-  const [cmd, ...rest] = process.argv.slice(2);
-  const { pos, o } = parse(rest);
+  let [cmd, ...rest]: (string | undefined)[] = process.argv.slice(2);
+  if (cmd?.startsWith("-") && !["-h", "--help", "-v", "--version"].includes(cmd)) { rest = [cmd, ...rest]; cmd = undefined; }
+  const { pos, o } = parse(rest as string[]);
   switch (cmd) {
     case "receive": case "recv": case "r":
       return receive(pos[0], o);
@@ -58,7 +61,10 @@ async function main() {
     case "install": return install();
     case "share-install": return shareInstall();
     case "version": case "--version": case "-v": return console.log(VERSION);
-    default: console.log(HELP);
+    case "help": case "--help": case "-h": return console.log(HELP);
+    default:
+      // bare `beam` or `beam <dir>` = receive
+      return receive(cmd, o);
   }
 }
 

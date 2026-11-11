@@ -3,7 +3,7 @@ import net from "node:net";
 import readline from "node:readline";
 import { spawnSync } from "node:child_process";
 
-export const VERSION = "0.1.0";
+export const VERSION = "0.1.1";
 export const UDP_PORT = 47100;
 export const TCP_PORT = 47101;
 export const HTTP_PORT = 47102;
