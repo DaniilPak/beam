@@ -1,0 +1,13 @@
+{
+  "name": "beam",
+  "version": "0.1.0",
+  "description": "Fast LAN transfer of big folders (Unity projects) between Mac and Windows",
+  "type": "module",
+  "bin": { "beam": "src/cli.ts" },
+  "scripts": {
+    "dev": "bun run src/cli.ts",
+    "build": "bun run scripts/build.ts",
+    "typecheck": "bunx tsc --noEmit"
+  },
+  "devDependencies": { "@types/bun": "latest", "typescript": "^5.6.0" }
+}
